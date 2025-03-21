@@ -43,63 +43,71 @@ ln_s() {
 if [ -n "$VC_ZIP" ]; then
     unzip "$VC_ZIP"
 fi
+mkdir -p "Windows Kits" VC Tools MSVC
 ln_s "Windows Kits" kits
 ln_s VC vc
-ln_s Tools vc/tools
-ln_s MSVC vc/tools/msvc
+(cd vc && ln_s ../Tools tools)
+(cd vc/tools && ln_s ../../MSVC msvc)
 
 # Add symlinks like LIBCMT.lib -> libcmt.lib. These are properly lowercased
 # out of the box, but MSVC produces directives like /DEFAULTLIB:"LIBCMT"
 # /DEFAULTLIB:"OLDNAMES", which lld-link doesn't find on a case sensitive
 # filesystem. Therefore add matching case symlinks for this, to allow
 # linking MSVC built objects with lld-link.
-cd $(echo vc/tools/msvc/* | awk '{print $1}')/lib
-for arch in x86 x64 arm arm64; do
-    if [ ! -d "$arch" ]; then
-        continue
-    fi
-    cd $arch
-    for i in libcmt libcmtd msvcrt msvcrtd oldnames; do
-        ln_s $i.lib $(echo $i | tr [a-z] [A-Z]).lib
+dir=$(echo vc/tools/msvc/* | awk '{print $1}')/lib
+if [ -d "$dir" ]; then
+    cd "$dir"
+    for arch in x86 x64 arm arm64; do
+        if [ ! -d "$arch" ]; then
+            continue
+        fi
+        cd $arch
+        for i in libcmt libcmtd msvcrt msvcrtd oldnames; do
+            ln_s $i.lib $(echo $i | tr [a-z] [A-Z]).lib
+        done
+        cd ..
     done
     cd ..
-done
-cd ..
+fi
 # Fix casing issues in the MSVC headers. These headers mostly have consistent
 # lowercase naming among themselves, but they do reference some WinSDK headers
 # with mixed case names (in a spelling that isn't present in the WinSDK).
 # Thus process them to reference the other headers with lowercase names.
 # Also lowercase these files, as a few of them do have non-lowercase names,
 # and the call to fixinclude lowercases those references.
-"$ORIG"/lowercase -symlink include
-"$ORIG"/fixinclude include
+if [ -d include ]; then
+    "$ORIG"/lowercase -symlink include
+    "$ORIG"/fixinclude include
+fi
 if [ -d "atlmfc/include" ]; then
     # The ATL headers are lowercased themselves, but they refer to
     # WinSDK headers with mixed casing.
     "$ORIG"/fixinclude "atlmfc/include"
 fi
-cd bin
-# vctip.exe is known to cause problems at some times; just remove it.
-# See https://bugs.chromium.org/p/chromium/issues/detail?id=735226 and
-# https://github.com/mstorsjo/msvc-wine/issues/23 for references.
-for i in $(find . -iname vctip.exe); do
-    rm $i
-done
-if [ -d HostX64 ]; then
-    # 15.x - 16.4
-    mv HostX64 Hostx64
-fi
-if [ -d HostARM64 ]; then
-    # 17.2 - 17.3
-    mv HostARM64 Hostarm64
-fi
-if [ -d HostArm64 ]; then
-    # 17.4
-    mv HostArm64 Hostarm64
-fi
-if [ -d Hostarm64/ARM64 ]; then
-    # 17.2 - 17.3
-    mv Hostarm64/ARM64 Hostarm64/arm64
+if [ -d bin ]; then
+    cd bin
+    # vctip.exe is known to cause problems at some times; just remove it.
+    # See https://bugs.chromium.org/p/chromium/issues/detail?id=735226 and
+    # https://github.com/mstorsjo/msvc-wine/issues/23 for references.
+    for i in $(find . -iname vctip.exe); do
+        rm $i
+    done
+    if [ -d HostX64 ]; then
+        # 15.x - 16.4
+        mv HostX64 Hostx64
+    fi
+    if [ -d HostARM64 ]; then
+        # 17.2 - 17.3
+        mv HostARM64 Hostarm64
+    fi
+    if [ -d HostArm64 ]; then
+        # 17.4
+        mv HostArm64 Hostarm64
+    fi
+    if [ -d Hostarm64/ARM64 ]; then
+        # 17.2 - 17.3
+        mv Hostarm64/ARM64 Hostarm64/arm64
+    fi
 fi
 cd "$DEST"
 
