@@ -112,7 +112,7 @@ cd "$DEST"
 if [ -d kits/10 ]; then
     cd kits/10
 else
-    mkdir kits
+    mkdir -p kits
     cd kits
     unzip "$SDK_ZIP"
     cd 10
