@@ -31,10 +31,10 @@ if [ -z "$BIN" ]; then
 else
     ENV="$BIN/msvcenv.sh"
     if [ ! -f "$ENV" ]; then
-        echo $ENV doesn\'t exist
+        echo "$ENV doesn't exist"
     else
-        export INCLUDE="$(bash -c ". $ENV && /bin/echo \"\$INCLUDE\"" | sed s/z://g | sed 's/\\/\//g')"
-        export LIB="$(bash -c ". $ENV && /bin/echo \"\$LIB\"" | sed s/z://g | sed 's/\\/\//g')"
+        INCLUDE="$(bash -c ". $ENV && /bin/echo \"\$INCLUDE\"" | sed s/z://g | sed 's/\\/\//g')"; export INCLUDE
+        LIB="$(bash -c ". $ENV && /bin/echo \"\$LIB\"" | sed s/z://g | sed 's/\\/\//g')"; export LIB
         MSVCARCH="$(bash -c ". $ENV && /bin/echo \"\$ARCH\"")"
         case $MSVCARCH in
         x86) TARGET_ARCH=i686 ;;

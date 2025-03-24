@@ -63,7 +63,7 @@ if [ -d "$dir" ]; then
         fi
         cd $arch
         for i in libcmt libcmtd msvcrt msvcrtd oldnames; do
-            ln_s $i.lib $(echo $i | tr [a-z] [A-Z]).lib
+            ln_s $i.lib $(echo $i | tr '[:lower:]' '[:upper:]').lib
         done
         cd ..
     done
@@ -89,9 +89,7 @@ if [ -d bin ]; then
     # vctip.exe is known to cause problems at some times; just remove it.
     # See https://bugs.chromium.org/p/chromium/issues/detail?id=735226 and
     # https://github.com/mstorsjo/msvc-wine/issues/23 for references.
-    for i in $(find . -iname vctip.exe); do
-        rm $i
-    done
+    find . -iname vctip.exe -delete
     if [ -d HostX64 ]; then
         # 15.x - 16.4
         mv HostX64 Hostx64
@@ -124,7 +122,7 @@ ln_s Include include
 cd ../..
 
 SDKVER=$(basename $(echo kits/10/include/10.* | awk '{print $NF}'))
-echo Using SDK version $SDKVER
+echo "Using SDK version $SDKVER"
 
 # Lowercase the SDK headers and libraries. As long as cl.exe is executed
 # within wine, this is mostly not necessary.
@@ -179,18 +177,18 @@ if [ "$(uname -m)" = "aarch64" ]; then
 fi
 
 MSVCVER=$(basename $(echo vc/tools/msvc/* | awk '{print $1}'))
-echo Using MSVC version $MSVCVER
+echo "Using MSVC version $MSVCVER"
 
 # Support `import std` for CMake.
 if [ -d "VC/Tools/MSVC/$MSVCVER/modules" ]; then
     ln_s VC/Tools/MSVC/$MSVCVER/modules modules
 fi
 
-cat "$ORIG"/wrappers/msvcenv.sh \
-| sed 's/MSVCVER=.*/MSVCVER='$MSVCVER/ \
-| sed 's/SDKVER=.*/SDKVER='$SDKVER/ \
-| sed s/x64/$host/ \
-| sed s/amd64/$dotnet_host/ \
+sed -e 's/MSVCVER=.*/MSVCVER='$MSVCVER/ \
+    -e 's/SDKVER=.*/SDKVER='$SDKVER/ \
+    -e s/x64/$host/ \
+    -e s/amd64/$dotnet_host/ \
+  "$ORIG"/wrappers/msvcenv.sh \
 > msvcenv.sh
 
 for arch in x86 x64 arm arm64; do
@@ -199,16 +197,15 @@ for arch in x86 x64 arm arm64; do
     fi
     mkdir -p bin/$arch
     cp -a "$ORIG"/wrappers/* bin/$arch
-    cat msvcenv.sh | sed 's/ARCH=.*/ARCH='$arch/ > bin/$arch/msvcenv.sh
+    sed 's/ARCH=.*/ARCH='$arch/ msvcenv.sh > bin/$arch/msvcenv.sh
 done
 rm msvcenv.sh
 
 if [ -d "$DEST/bin/$host" ]; then
     if WINE="$(command -v wine64 || command -v wine)"; then
-        WINEDEBUG=-all "${WINE}" wineboot &>/dev/null
+        WINEDEBUG=-all "${WINE}" wineboot >/dev/null 2>&1
         echo "Build msvctricks ..."
-        "$DEST/bin/$host/cl" /EHsc /O2 "$ORIG/msvctricks.cpp"
-        if [ $? -eq 0 ]; then
+        if "$DEST/bin/$host/cl" /EHsc /O2 "$ORIG/msvctricks.cpp"; then
             mv msvctricks.exe bin/
             rm msvctricks.obj
             echo "Build msvctricks done."
